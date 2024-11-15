@@ -1,0 +1,70 @@
+body {
+    font-family: monospace;
+    font-size: 1.25em;
+}
+.tbl {
+    border-collapse: collapse;
+    width: 100%;
+}
+.tbl td, .tbl th {
+    border: 1px solid #aaa;
+    padding: 6px;
+}
+label {
+    display: inline-block;
+    white-space: nowrap;
+    margin-right: 1em;
+}
+#settings {
+    margin: 1em 0;
+}
+#selectedGenres {
+    display: inline;
+}
+#selectedGenres div {
+    display: inline-block;
+    margin-right: 1em;
+}
+.track-genres {
+    white-space: nowrap;
+}
+.section {
+    margin: 1em 0;
+}
+.section > label {
+    margin-right: 0;
+    font-weight: bold;
+}
+#filter_reset {
+    border: 0;
+    background: none;
+    text-decoration: underline;
+    cursor: pointer;
+}
+footer {
+    position: sticky;
+    bottom: 0;
+    padding: 10px 0 0 0;
+    border-top: 1px solid #aaa;
+    margin: 0;
+    overflow: hidden;
+    height: 50px;
+    background-color: white;
+}
+#content {
+    padding-bottom: 20px;
+}
+#audio {
+    width: 100%;
+}
+thead th {
+    background-color: #f9f9f9;
+    cursor: pointer;
+}
+thead th:hover {
+    text-decoration: underline;
+}
+.nosort, .nosort:hover {
+    text-decoration: none;
+    cursor: default;
+}
