@@ -8,12 +8,14 @@ Multigenre is a tool for managing multiple semicolon-separated genre tags across
 
 ## To Do
 
+- Implement genre update
 - Check/Uncheck all in Genre header
 - Project mode: display ~1 page of random tracks, remember processed tracks when reloaded to show next batch, display # processed vs unprocessed.
 - Playlists: load playlists from linked directory and allow limiting tracks shown to those in (or not in) one or more selected playlists; select playlist, choose include or exclude and apply, repeat as needed.
 - Multiple named project support: Save project with name. Load project by selecting from drop down.
 - Album mode: sets/unsets all tracks in the same album
 - Track mode: sets/unsets all tracks in the same album
+- Documentation
 
 ## Change Log
 
