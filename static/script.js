@@ -1,19 +1,16 @@
 var allGenres = []; // all available genres
 var selectedGenres = []; // selected genres to display in table
 var tracks = []; // array of all track objects
-var api_url = 'http://localhost:8000/api.php';
+var api_url = '/api/';
 
-async function appInit() {
-    // get tracks from api
+async function appInit(cached=true) {
     startWait();
-    let cached = window.localStorage.getItem('tracks');
+    resetUI();
+    // get tracks from api
     let data = [];
-    if (!cached) {
-        let result = await fetch(api_url + '/?action=scan');
-        data = await result.json();
-    } else {
-        data = JSON.parse(cached);
-    }
+    let result = await fetch(api_url + (cached ? 'scan/cached' : 'scan'));
+    data = await result.json();
+    setTrackCount(data.length);
     for (let i=0; i<data.length; i++) {
         let track = data[i];
         if (track.title === '') {
@@ -28,8 +25,6 @@ async function appInit() {
         addTrack(track);
     }
     allGenres.sort();
-    saveData();
-    endWait();
     // setup app screen 
     setupGenres();
     resetFilters();
@@ -41,8 +36,26 @@ async function appInit() {
     // sort event listeners
     document.getElementById('tracks').getElementsByTagName('thead')[0].addEventListener('click', tableSort);
     Array.from(document.getElementsByClassName('nosort')).forEach((el) => {el.removeEventListener('click', tableSort)});
+    endWait();
 }
 appInit();
+
+function resetUI() {
+    let tracks = document.getElementById('tracks');
+    let tbody = tracks.getElementsByTagName('tbody')[0];
+    tbody.textContent = '';
+    let selectors = document.getElementById('selectedGenres');
+    selectors.textContent = '';
+    document.getElementById('track_count').textContent = 'Loading tracks...';
+}
+
+function numberWithCommas(x) {
+    return x.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function setTrackCount(count) { 
+    document.getElementById('track_count').textContent = numberWithCommas(count) + ' tracks';
+}
 
 // Shows/hides the settings block
 function toggleSettings() {
@@ -57,14 +70,9 @@ function toggleSettings() {
     }
 }
 
-// Deletes the local storage and refreshes the page from server data
+// Reloads the page without using cached data
 function clearCache() {
-    window.localStorage.removeItem('tracks');
-    location.reload();
-}
-
-function saveData() {
-    window.localStorage.setItem('tracks', JSON.stringify(tracks));
+    appInit(false);
 }
 
 // Adds a track to the table
@@ -151,7 +159,7 @@ function updateTrackGenre(trackId, genre, checked) {
 // Creates global genre selection checkbox for each genre
 function setupGenres() {
     let selectors = document.getElementById('selectedGenres');
-    selectors.childNodes.forEach(node => node.remove());
+    selectors.textContent = '';
     allGenres.forEach(genre => {
         // genre selector
         let label = document.createElement('label');
@@ -185,7 +193,7 @@ function play(trackId) {
     let audio = document.getElementById('audio');
     let track = tracks.find(t => t.id === trackId);
     document.title = 'Multigenre - ' + track.title + ' by ' + track.artist;
-    audio.src = '/music/' + track.file;
+    audio.src = '/static/music/' + track.file;
     audio.play();
 }
 

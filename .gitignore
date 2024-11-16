@@ -1,3 +1,8 @@
-music
-test.php
-vendor
+static/music
+bin
+lib
+lib64
+share
+include
+__pycache__
+cached.json

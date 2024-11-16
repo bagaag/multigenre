@@ -3,21 +3,46 @@
 Multigenre is a tool for managing multiple semicolon-separated genre tags across a large collection of MP3/M4A files. 
 
 ## Features
-- Scans a music folder for files and displays meta data in a filterable and sortable table.
-- Allows the user to select one or more genres to set or unset with checkboxes for each track.
+- Scan a music folder for files and display meta data in a filterable and sortable table.
+- Select one or more genres to set or unset with checkboxes for each track.
+- One-click to play track for audio identification.
+
+## How to Use
+
+TBD
+
+## Development Setup
+
+Create new environment (only do this once) from the project folder
+
+`python -m venv .`
+
+Activate environment - everything else assumes this has been done
+
+`source ./bin/activate`
+
+Packages installed w/ pip
+
+- mutagen
+- fastapi[standard]
+
 
 ## To Do
 
-- Implement genre update
+- Implement genre tag update
+- Documentation
 - Check/Uncheck all in Genre header
 - Project mode: display ~1 page of random tracks, remember processed tracks when reloaded to show next batch, display # processed vs unprocessed.
 - Playlists: load playlists from linked directory and allow limiting tracks shown to those in (or not in) one or more selected playlists; select playlist, choose include or exclude and apply, repeat as needed.
 - Multiple named project support: Save project with name. Load project by selecting from drop down.
 - Album mode: sets/unsets all tracks in the same album
 - Track mode: sets/unsets all tracks in the same album
-- Documentation
+- Edit other tag values
 
 ## Change Log
+
+2024-11-16
+- Rewrite API from PHP to Python. The tag lib from PHP only has "alpha" support for writing tags, while the mutagen lib from Python is used by several desktop tag editor applications.
 
 2024-11-14
 - Button to clear cache

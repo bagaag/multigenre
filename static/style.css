@@ -1,6 +1,7 @@
 body {
     font-family: monospace;
     font-size: 1.25em;
+    min-height: 100vh;
 }
 .tbl {
     border-collapse: collapse;

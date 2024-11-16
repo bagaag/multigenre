@@ -2,8 +2,8 @@
 <html>
 <head>
     <title>Multigenre</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="script.js" defer></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/script.js" defer></script>
 </head>
 <body>
     <div id="content">
@@ -11,10 +11,11 @@
             <label>Menu:</label>
             <button id="clear_cache">Clear Cache</button>
             <button id="toggle_settings">Hide Settings</button>
+            <span id="track_count">Loading tracks...</span>
         </div>
         <div id="settings">
             <div class="section">
-                <label>Selected Genres:</label>
+                <label title="These are all the genres found in scanned files. Check a box to manage that genre for each track.">Selected Genres:</label>
                 <div id="selectedGenres"></div>
             </div>
             <div class="section">
