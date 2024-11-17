@@ -10,7 +10,7 @@
         <div class="section">
             <label>Menu:</label>
             <button id="clear_cache">Clear Cache</button>
-            <button id="toggle_settings">Hide Settings</button>
+            <button id="toggle_settings">Hide Genres</button>
             <span id="track_count">Loading tracks...</span>
         </div>
         <div id="settings">
@@ -18,25 +18,21 @@
                 <label title="These are all the genres found in scanned files. Check a box to manage that genre for each track.">Selected Genres:</label>
                 <div id="selectedGenres"></div>
             </div>
-            <div class="section">
-                <label>Search:</label>
-                <select id="filter_search">
-                    <option value="any">Any</option>
-                    <option value="artist">Artist</option>
-                    <option value="album">Album</option>
-                    <option value="title">Title</option>
-                    <option value="genre">Genre</option>
-                    <option value="year">Year</option>
-                </select>
-                <label for="album">Keyword:</label>
-                <input type="text" id="filter_keyword">
-                <button id="filter_button">Filter</button>
-                <button id="filter_reset">Reset</button>
-            </div>
-            <div class="section">
-            </div>
-            <div class="section">
-            </div>
+        </div>
+        <div class="section">
+            <label>Search:</label>
+            <select id="filter_search">
+                <option value="any">Any</option>
+                <option value="artist">Artist</option>
+                <option value="album">Album</option>
+                <option value="title">Title</option>
+                <option value="genre">Genre</option>
+                <option value="year">Year</option>
+            </select>
+            <label>Keyword:</label>
+            <input type="text" id="filter_keyword">
+            <button id="filter_button">Filter</button>
+            <button id="filter_reset">Reset</button>
         </div>
         <table id="tracks" class="tbl">
             <thead>

@@ -1,14 +1,15 @@
 var allGenres = []; // all available genres
 var selectedGenres = []; // selected genres to display in table
 var tracks = []; // array of all track objects
-var api_url = '/api/';
+var apiUrl = '/api/';
+var appTitle = 'Multigenre';
 
 async function appInit(cached=true) {
     startWait();
     resetUI();
     // get tracks from api
     let data = [];
-    let result = await fetch(api_url + (cached ? 'scan/cached' : 'scan'));
+    let result = await fetch(apiUrl + (cached ? 'scan/cached' : 'scan'));
     data = await result.json();
     setTrackCount(data.length);
     for (let i=0; i<data.length; i++) {
@@ -63,10 +64,10 @@ function toggleSettings() {
     let btn = document.getElementById('toggle_settings');
     if (settings.style.display === 'none') {
         settings.style.display = 'block';
-        btn.textContent = 'Hide Settings';
+        btn.textContent = 'Hide Grenres';
     } else {
         settings.style.display = 'none';
-        btn.textContent = 'Show Settings';
+        btn.textContent = 'Show Genres';
     }
 }
 
@@ -99,18 +100,19 @@ function addTrack(track) {
     genre.setAttribute('title', track.genres.join(', '));
 }
 
-function startWait() {
-    document.title = 'Multigenre - Loading...';
+async function startWait() {
+    document.title = 'Loading...';
     document.getElementsByTagName('body')[0].style.cursor = 'wait';
+    await document.onwaiting
 }
-function endWait() {
-    document.title = 'Multigenre';
+async function endWait() {
+    document.title = appTitle;
     document.getElementsByTagName('body')[0].style.cursor = 'default';
 }
 
 // Creates/recreates selected genre checkboxes in each track's genre cell
-function toggleSelectedGenre(ev) {
-    startWait();
+async function toggleSelectableGenre(ev) {
+    await startWait();
     let genre = ev.target.value;
     let selected = ev.target.checked;
     let genreCells = Array.from(document.getElementsByClassName('track-genres'));
@@ -134,7 +136,7 @@ function toggleSelectedGenre(ev) {
             box.addEventListener('change', function() {
                 let trackId = box.getAttribute('data-trackid');
                 let genre = box.value;
-                updateTrackGenre(trackId, genre, box.checked);
+                toggleTrackGenre(trackId, genre, box.checked);
             });
         }
     });
@@ -142,18 +144,39 @@ function toggleSelectedGenre(ev) {
 }
 
 // Adds or removes a genre for a specified track
-function updateTrackGenre(trackId, genre, checked) {
+async function toggleTrackGenre(trackId, genre, checked) {
+    startWait();
+    // find track by id
     let track = tracks.find(t => t.id === trackId);
+    // update genres
     if (checked) {
         if (!track.genres.includes(genre)) {
             track.genres.push(genre);
-            console.log('Added ' + genre + ' to ' + track.title);
         }
     } else {
         track.genres = track.genres.filter(g => g !== genre);
-        console.log('Removed ' + genre + ' from ' + track.title);
+        console.info('Removed ' + genre + ' from ' + track.title);
     }
-    saveData();
+    console.info('Setting genres for ' + track.title + ' to [' + track.genres.join(', ') + ']');
+    // send update to api
+    const response = await fetch(apiUrl + `track/${trackId}/genres`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({"track_id": trackId, "genres": track.genres})
+    });
+    // see if we got a 200 response
+    if (!response.ok) {
+        alert('Failed to update genres for ' + track.title);
+        console.error('Failed to update genres for ' + track.title);
+        console.error(response);
+    } else {
+        // update genre cell title
+        let genreCell = document.getElementById('track_' + trackId).querySelector('.track-genres');
+        genreCell.setAttribute('title', track.genres.join(', '));
+    }
+    endWait();
 }
 
 // Creates global genre selection checkbox for each genre
@@ -166,7 +189,7 @@ function setupGenres() {
         let box = document.createElement("input");
         box.setAttribute('type', 'checkbox');
         box.value = genre;
-        box.addEventListener('change', toggleSelectedGenre);
+        box.addEventListener('change', toggleSelectableGenre);
         label.appendChild(box);
         label.appendChild(document.createTextNode(genre));
         selectors.appendChild(label);
@@ -206,10 +229,12 @@ function resetFilters() {
 
 // Update table rows based on filter form values
 function updateFilters() {
+    startWait();
     let search = document.getElementById('filter_search').value;
     let keyword = document.getElementById('filter_keyword').value.toLowerCase();
     let tbl = document.getElementById('tracks');
     let rows = tbl.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    let count = 0;
     for (let i=0; i<rows.length; i++) {
         let row = rows[i];
         let artist = row.cells[0].textContent.toLowerCase();
@@ -240,12 +265,20 @@ function updateFilters() {
         } else if (search == 'genre') {
             show = genres.includes(keyword);
         }
-        row.style.display = show ? 'table-row' : 'none';
+        if (show) {
+            count++;
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+        }
+        setTrackCount(count);
     }
+    endWait();
 }
 
 // Sort table rows by column
-function tableSort(ev) {
+async function tableSort(ev) {
+    startWait();
     let target = ev.target;
     let col = target.cellIndex;
     let tbl = document.getElementById('tracks');
@@ -259,5 +292,6 @@ function tableSort(ev) {
         return 0;
     });
     rows.forEach(row => row.remove());
-    sorted.forEach(row => tbl.getElementsByTagName('tbody')[0].appendChild(row));    
+    sorted.forEach(row => tbl.getElementsByTagName('tbody')[0].appendChild(row));
+    endWait();
 }
