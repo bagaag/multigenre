@@ -29,10 +29,9 @@ Packages installed w/ pip
 
 ## To Do
 
-- Implement genre tag update
+- Project mode: display ~1 page of random tracks, remember processed tracks when reloaded to show next batch, display # processed vs unprocessed.
 - Documentation
 - Check/Uncheck all in Genre header
-- Project mode: display ~1 page of random tracks, remember processed tracks when reloaded to show next batch, display # processed vs unprocessed.
 - Playlists: load playlists from linked directory and allow limiting tracks shown to those in (or not in) one or more selected playlists; select playlist, choose include or exclude and apply, repeat as needed.
 - Multiple named project support: Save project with name. Load project by selecting from drop down.
 - Album mode: sets/unsets all tracks in the same album
@@ -40,6 +39,9 @@ Packages installed w/ pip
 - Edit other tag values
 
 ## Change Log
+
+2024-11-17
+- Update track genres
 
 2024-11-16
 - Rewrite API from PHP to Python. The tag lib from PHP only has "alpha" support for writing tags, while the mutagen lib from Python is used by several desktop tag editor applications.

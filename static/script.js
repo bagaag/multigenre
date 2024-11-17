@@ -1,8 +1,11 @@
+const apiUrl = '/api/';
+const appTitle = 'Multigenre';
+const loadingText = 'Loading...';
+const statusText = loadingText;
+const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
 var allGenres = []; // all available genres
 var selectedGenres = []; // selected genres to display in table
 var tracks = []; // array of all track objects
-var apiUrl = '/api/';
-var appTitle = 'Multigenre';
 
 async function appInit(cached=true) {
     startWait();
@@ -11,7 +14,6 @@ async function appInit(cached=true) {
     let data = [];
     let result = await fetch(apiUrl + (cached ? 'scan/cached' : 'scan'));
     data = await result.json();
-    setTrackCount(data.length);
     for (let i=0; i<data.length; i++) {
         let track = data[i];
         if (track.title === '') {
@@ -47,15 +49,10 @@ function resetUI() {
     tbody.textContent = '';
     let selectors = document.getElementById('selectedGenres');
     selectors.textContent = '';
-    document.getElementById('track_count').textContent = 'Loading tracks...';
 }
 
 function numberWithCommas(x) {
     return x.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
-}
-
-function setTrackCount(count) { 
-    document.getElementById('track_count').textContent = numberWithCommas(count) + ' tracks';
 }
 
 // Shows/hides the settings block
@@ -103,23 +100,27 @@ function addTrack(track) {
 async function startWait() {
     document.title = 'Loading...';
     document.getElementsByTagName('body')[0].style.cursor = 'wait';
-    await document.onwaiting
+    document.getElementById('status').textContent = loadingText;
+    await sleep(100);
 }
 async function endWait() {
+    let count = document.getElementById('tracks').getElementsByTagName('tbody')[0].querySelectorAll('tr.show').length;
+    document.getElementById('status').textContent = numberWithCommas(count) + ' tracks';
     document.title = appTitle;
     document.getElementsByTagName('body')[0].style.cursor = 'default';
 }
 
 // Creates/recreates selected genre checkboxes in each track's genre cell
-async function toggleSelectableGenre(ev) {
-    await startWait();
+function toggleSelectableGenre(ev) {
     let genre = ev.target.value;
     let selected = ev.target.checked;
     let genreCells = Array.from(document.getElementsByClassName('track-genres'));
     genreCells.forEach(cell => {
         let genreBox = cell.querySelector('input[value="' + genre + '"]');
         if (genreBox && !selected) {
-            genreBox.parentElement.remove();
+            genreBox.parentElement.style.display = 'none';
+        } else if (genreBox && selected) {
+            genreBox.parentElement.style.display = 'inline';
         } else if (!genreBox && selected) {
             // add genre box
             let trackId = cell.parentElement.getAttribute('id').split('_')[1];
@@ -140,7 +141,6 @@ async function toggleSelectableGenre(ev) {
             });
         }
     });
-    endWait();
 }
 
 // Adds or removes a genre for a specified track
@@ -271,7 +271,6 @@ function updateFilters() {
         } else {
             row.style.display = 'none';
         }
-        setTrackCount(count);
     }
     endWait();
 }
