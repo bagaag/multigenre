@@ -107,17 +107,23 @@ function addTrack(track) {
     genre.setAttribute('title', track.genres.join(', '));
 }
 
-async function startWait() {
+function startWait() {
     document.title = 'Loading...';
     document.getElementsByTagName('body')[0].style.cursor = 'wait';
     document.getElementById('status').textContent = loadingText;
-    await sleep(100);
 }
-async function endWait() {
+function endWait() {
     let count = document.getElementById('tracks').getElementsByTagName('tbody')[0].querySelectorAll('tr.show').length;
     document.getElementById('status').textContent = numberWithCommas(count) + ' tracks';
     document.title = appTitle;
     document.getElementsByTagName('body')[0].style.cursor = 'default';
+}
+
+// For some reason, using startWait with a sleep to force UI refresh causes the page to hang 
+// after a few calls to toggleSelectableGenre. This is a workaround.
+async function saveSettingsAndReload() {
+    saveSettings();
+    window.location.reload();
 }
 
 // Creates/recreates selected genre checkboxes in each track's genre cell
@@ -125,8 +131,8 @@ function toggleSelectableGenre(ev, save=true) {
     let genre = ev.target.value;
     let selected = ev.target.checked;
     let genreCells = Array.from(document.getElementsByClassName('track-genres'));
-    let selectedGenres = [];
-    genreCells.forEach(cell => {
+    for (let i=0; i<genreCells.length; i++) {
+        let cell = genreCells[i];
         let genreBox = cell.querySelector('input[value="' + genre + '"]');
         if (genreBox && !selected) {
             genreBox.parentElement.style.display = 'none';
@@ -151,7 +157,7 @@ function toggleSelectableGenre(ev, save=true) {
                 toggleTrackGenre(trackId, genre, box.checked);
             });
         }
-    });
+    }
     if (save) {
         saveSettings();
     }
@@ -205,7 +211,7 @@ function loadSettings() {
 
 // Adds or removes a genre for a specified track
 async function toggleTrackGenre(trackId, genre, checked) {
-    startWait();
+    await startWait();
     // find track by id
     let track = tracks.find(t => t.id === trackId);
     // update genres
@@ -249,7 +255,7 @@ function setupGenreSelectors() {
         let box = document.createElement("input");
         box.setAttribute('type', 'checkbox');
         box.value = genre;
-        box.addEventListener('change', toggleSelectableGenre);
+        box.addEventListener('change', saveSettingsAndReload);
         label.appendChild(box);
         label.appendChild(document.createTextNode(genre));
         selectors.appendChild(label);
