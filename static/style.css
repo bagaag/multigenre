@@ -36,7 +36,7 @@ label {
     margin-right: 0;
     font-weight: bold;
 }
-#filter_reset {
+.btn-link {
     border: 0;
     background: none;
     text-decoration: underline;
@@ -68,4 +68,10 @@ thead th:hover {
 .nosort, .nosort:hover {
     text-decoration: none;
     cursor: default;
+}
+#tracks tbody > tr {
+    display: none;
+}
+#tracks tbody > tr.show {
+    display: table-row;
 }

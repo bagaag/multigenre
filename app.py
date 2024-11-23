@@ -2,6 +2,7 @@ import glob
 import os
 import hashlib
 import json
+import re
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -31,6 +32,7 @@ def collect_track_files(dir, files=[]):
             files = collect_track_files(entry, files)
         elif entry.endswith('.mp3') or entry.endswith('.m4a'):
             files.append(entry)
+    files.sort()
     return files
 
 # Scan a track file and return its ID3 metadata
@@ -45,16 +47,50 @@ def scan_track(file):
         ret['album'] = tags['album'][0] if 'album' in keys else ''
         ret['artist'] = tags['artist'][0] if 'artist' in keys else ''
         ret['year'] = tags['date'][0][0:4] if 'date' in keys else ''
-        ret['trackNumber'] = tags['tracknumber'][0] if 'tracknumber' in keys else ''
+        if ret['year'] == '':
+            real_tags = mutagen.File(file, None, False)
+            if 'TXXX:YEAR' in real_tags:
+                ret['year'] = real_tags['TXXX:YEAR'][0]
+        if ret['year'] == '':
+            print(f'Missing year for {ret['file']}')
+        ret['trackNumber'] = int(tags['tracknumber'][0].split('/')[0]) if 'tracknumber' in keys else ''
         if 'genre' in keys:
-            if len(tags['genre']) > 1:
-                ret['genres'] = tags['genre']
+            genres = tags['genre']
+            if len(genres) > 1:
+                ret['genres'] = genres
             else:
-                ret['genres'] = tags['genre'][0].split(';')
+                ret['genres'] = genres[0].split(';')
+            # check for invalid genre characters
+            fixed = cleanup_genres(ret['genres'])
+            if not arrays_are_the_same(genres, fixed):
+                print(f'Fix genres: {str(genres)} != {str(fixed)} in {ret['file']}')
         else:
             ret['genres'] = []
     return ret
 
+def cleanup_genres(genres):
+    changed = False
+    fixes = []
+    for i in range(len(genres)):
+        genre = genres[i]
+        fix = re.sub(r'[^A-Za-z0-9-; &/]', '', genre)
+        if fix != genre:
+            fixes.append(fix)
+            changed = True
+        else:
+            fixes.append(genre)
+    fixes = list(dict.fromkeys(fixes))
+    if len(genres) != len(fixes):
+        changed = True
+    return fixes if changed else genres
+
+def arrays_are_the_same(a, b):
+    if len(a) != len(b):
+        return False
+    for i in range(len(a)):
+        if a[i] != b[i]:
+            return False
+    return True
 
 ##
 ## Request handlers
@@ -110,6 +146,10 @@ async def update_genres(track: Genres):
                     break
         if path is not None:
             print('Updating genres for ' + path + ' to ' + str(genres))
+            fixed = cleanup_genres(genres)
+            if not arrays_are_the_same(genres, fixed):
+                print(f'Fixed genres: {str(genres)} => {str(fixed)}')
+                genres = fixed
             path = os.path.join(music_dir, path)
             # update cache file
             with open(cache_file, 'w') as file:

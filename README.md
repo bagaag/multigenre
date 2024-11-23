@@ -1,11 +1,12 @@
 # Multigenre
 
-Multigenre is a tool for managing multiple semicolon-separated genre tags across a large collection of MP3/M4A files. 
+Multigenre is a tool for managing tracks with multiple genre tags across a large collection of MP3/M4A files. 
 
 ## Features
 - Scan a music folder for files and display meta data in a filterable and sortable table.
 - Select one or more genres to set or unset with checkboxes for each track.
-- One-click to play track for audio identification.
+- Manage tracks in a single list or in small chunks to work through a long list over time.
+- Click to play track for preview/identification.
 
 ## How to Use
 
@@ -29,16 +30,17 @@ Packages installed w/ pip
 
 ## To Do
 
-- Project mode: display ~1 page of random tracks, remember processed tracks when reloaded to show next batch, display # processed vs unprocessed.
 - Documentation
-- Check/Uncheck all in Genre header
 - Playlists: load playlists from linked directory and allow limiting tracks shown to those in (or not in) one or more selected playlists; select playlist, choose include or exclude and apply, repeat as needed.
-- Multiple named project support: Save project with name. Load project by selecting from drop down.
 - Album mode: sets/unsets all tracks in the same album
 - Track mode: sets/unsets all tracks in the same album
+- Add or remove a selected genre for all displayed tracks
 - Edit other tag values
 
 ## Change Log
+
+2024-11-23
+- Finish genre and year validation & cleanup
 
 2024-11-17
 - Update track genres

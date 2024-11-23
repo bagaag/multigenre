@@ -29,13 +29,18 @@ async function appInit(cached=true) {
     }
     allGenres.sort();
     // setup app screen 
-    setupGenres();
-    resetFilters();
-    // filter event listeners
+    setupGenreSelectors();
+    resetFilters(false);
+    initProjectStatus();
+    loadSettings();
+    // button event listeners
     document.getElementById('filter_button').addEventListener('click', updateFilters);
     document.getElementById('filter_reset').addEventListener('click', resetFilters);
     document.getElementById('clear_cache').addEventListener('click', clearCache);
-    document.getElementById('toggle_settings').addEventListener('click', toggleSettings);
+    document.getElementById('toggle_settings').addEventListener('click', toggleGenreSelectorVisibility);
+    document.getElementById('project_toggle').addEventListener('click', toggleProject);
+    document.getElementById('project_next').addEventListener('click', nextProjectPage);    
+    document.getElementById('project_reset').addEventListener('click', resetProject);
     // sort event listeners
     document.getElementById('tracks').getElementsByTagName('thead')[0].addEventListener('click', tableSort);
     Array.from(document.getElementsByClassName('nosort')).forEach((el) => {el.removeEventListener('click', tableSort)});
@@ -55,8 +60,8 @@ function numberWithCommas(x) {
     return x.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
 }
 
-// Shows/hides the settings block
-function toggleSettings() {
+// Shows/hides the genres block
+function toggleGenreSelectorVisibility(status=null, save=true) {
     let settings = document.getElementById('settings');
     let btn = document.getElementById('toggle_settings');
     if (settings.style.display === 'none') {
@@ -65,6 +70,9 @@ function toggleSettings() {
     } else {
         settings.style.display = 'none';
         btn.textContent = 'Show Genres';
+    }
+    if (save) {
+        saveSettings();
     }
 }
 
@@ -78,6 +86,7 @@ function addTrack(track) {
     tracks.push(track);
     let tbl = document.getElementById('tracks');
     let row = tbl.getElementsByTagName('tbody')[0].insertRow();
+    row.classList.add('show');
     row.setAttribute('id', 'track_' + track.id);
     let artist = row.insertCell();
     artist.setHTMLUnsafe(track.artist);
@@ -86,9 +95,10 @@ function addTrack(track) {
     let trackNumber = row.insertCell();
     trackNumber.textContent = track.trackNumber;
     let title = row.insertCell();
+    title.setAttribute('title', track.file);
     let titleLink = document.createElement('a');
     titleLink.setAttribute('href', "javascript:play('" + track.id + "')");
-    titleLink.setHTMLUnsafe(track.title);
+    titleLink.setHTMLUnsafe(track.title);    
     title.appendChild(titleLink);
     let year = row.insertCell();
     year.textContent = track.year;
@@ -111,10 +121,11 @@ async function endWait() {
 }
 
 // Creates/recreates selected genre checkboxes in each track's genre cell
-function toggleSelectableGenre(ev) {
+function toggleSelectableGenre(ev, save=true) {
     let genre = ev.target.value;
     let selected = ev.target.checked;
     let genreCells = Array.from(document.getElementsByClassName('track-genres'));
+    let selectedGenres = [];
     genreCells.forEach(cell => {
         let genreBox = cell.querySelector('input[value="' + genre + '"]');
         if (genreBox && !selected) {
@@ -141,6 +152,55 @@ function toggleSelectableGenre(ev) {
             });
         }
     });
+    if (save) {
+        saveSettings();
+    }
+}
+
+// Saves currently selected genres to cookie
+function saveSettings() {
+    let selectedGenres = Array.from(document.getElementById('selectedGenres').querySelectorAll('input:checked')).map(el => el.value);
+    let filterSearch = document.getElementById('filter_search');
+    let filterKeyword = document.getElementById('filter_keyword');
+    let settings = {
+        "selectedGenres": selectedGenres,
+        "settingsVisible": document.getElementById('settings').style.display != 'none',
+        "filterSearch": filterSearch.value,
+        "filterKeyword": filterKeyword.value
+    };
+    console.log('saving', settings);
+    setCookie('multigenre-settings', JSON.stringify(settings), 365);
+}
+
+// Loads selected genres from cookie
+function loadSettings() {
+    let json = getCookie('multigenre-settings');
+    console.log('loading', json);
+    if (json != null) {
+        let settings = JSON.parse(json);
+        console.log('loading', settings);
+        // load selected genres
+        let selectedGenres = settings.selectedGenres;
+        let boxes = document.getElementById('selectedGenres').querySelectorAll('input');
+        boxes.forEach(box => {
+            let genre = box.value;
+            if (selectedGenres.includes(genre)) {
+                box.checked = true;
+                toggleSelectableGenre({target: box}, false);
+            }
+        });
+        // load genre selector UI state
+        let settingsDiv = document.getElementById('settings');
+        settingsDiv.style.display = settings.settingsVisible ? 'block' : 'none';
+        let btn = document.getElementById('toggle_settings');
+        btn.textContent = settings.settingsVisible ? 'Hide Genres' : 'Show Genres';
+        // load filters
+        let filterSearch = document.getElementById('filter_search');
+        filterSearch.value = settings.filterSearch;
+        let filterKeyword = document.getElementById('filter_keyword');
+        filterKeyword.value = settings.filterKeyword;
+        updateFilters(false);
+    }
 }
 
 // Adds or removes a genre for a specified track
@@ -180,7 +240,7 @@ async function toggleTrackGenre(trackId, genre, checked) {
 }
 
 // Creates global genre selection checkbox for each genre
-function setupGenres() {
+function setupGenreSelectors() {
     let selectors = document.getElementById('selectedGenres');
     selectors.textContent = '';
     allGenres.forEach(genre => {
@@ -197,7 +257,6 @@ function setupGenres() {
     // link to add new genre
     let newGenre = document.createElement('button');
     newGenre.textContent = 'Add New Genre';
-    newGenre.setAttribute('class', 'btn-link');
     newGenre.addEventListener('click', addNewGenre);
     selectors.appendChild(newGenre);
 }
@@ -207,7 +266,7 @@ function addNewGenre() {
     let genre = prompt('Enter new genre:');
     if (genre) {
         allGenres.push(genre);
-        setupGenres();
+        setupGenreSelectors();
     }
 }
 
@@ -221,14 +280,14 @@ function play(trackId) {
 }
 
 // Clear filter form and reset search results
-function resetFilters() {
+function resetFilters(save=true) {
     document.getElementById('filter_search').value = 'any';
     document.getElementById('filter_keyword').value = '';
-    updateFilters();
+    updateFilters(save);
 }
 
 // Update table rows based on filter form values
-function updateFilters() {
+function updateFilters(save=true) {
     startWait();
     let search = document.getElementById('filter_search').value;
     let keyword = document.getElementById('filter_keyword').value.toLowerCase();
@@ -267,16 +326,24 @@ function updateFilters() {
         }
         if (show) {
             count++;
-            row.style.display = 'table-row';
+            row.classList.add('show');
         } else {
-            row.style.display = 'none';
+            row.classList.remove('show');
         }
+    }
+    if (save) {
+        saveSettings();
     }
     endWait();
 }
 
 // Sort table rows by column
 async function tableSort(ev) {
+    let project = getProject();
+    if (project.status) {
+        alert('Sorting is disabled when in paging mode.');
+        return;
+    }
     startWait();
     let target = ev.target;
     let col = target.cellIndex;
@@ -293,4 +360,100 @@ async function tableSort(ev) {
     rows.forEach(row => row.remove());
     sorted.forEach(row => tbl.getElementsByTagName('tbody')[0].appendChild(row));
     endWait();
+}
+
+function getCookie(name) {
+    const cookies = document.cookie.split('; ');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].split('=');
+      if (cookie[0] === name) {
+        return decodeURIComponent(cookie[1]);
+      }
+    }
+    return null;
+}
+
+function setCookie(name, value, days) {
+    const date = new Date();
+    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+    const expires = "expires=" + date.toUTCString();
+    document.cookie = name + "=" + encodeURIComponent(value) + ";" + expires + ";path=/;SameSite=Lax";
+}
+
+function initProjectStatus() {
+    let project = getProject();
+    let btnNext = document.getElementById('project_next');
+    let pageSize = document.getElementById('project_size');
+    if (!project.status) {
+        document.getElementById('project_toggle').textContent = 'Start';
+        btnNext.style.display = 'none';
+        pageSize.removeAttribute('disabled');
+    } else {
+        document.getElementById('project_toggle').textContent = 'Stop';
+        btnNext.style.display = 'inline';
+        pageSize.setAttribute('disabled', 'disabled');
+        nextProjectPage(false);
+    }
+}
+
+function toggleProject() {
+    let project = getProject();
+    let btn = document.getElementById('project_toggle');
+    let pageSize = document.getElementById('project_size');
+    let btnNext = document.getElementById('project_next');
+    if (!project.status) {
+        project.status = true;
+        project.pageSize = pageSize.value;
+        btn.textContent = 'Stop';
+        pageSize.setAttribute('disabled', 'disabled');
+        btnNext.style.display = 'inline';
+        saveProject(project);
+        nextProjectPage(false);
+    } else {
+        project.status = false;
+        btn.textContent = 'Start';
+        pageSize.removeAttribute('disabled');
+        btnNext.style.display = 'none';
+        saveProject(project);
+        updateFilters(false);
+    }
+}
+
+function nextProjectPage(increment=true) {
+    let project = getProject();
+    if (increment) {
+        project.page++;
+        saveProject(project);
+    }
+    let tbl = document.getElementById('tracks');
+    let rows = tbl.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    for (let i=0; i<rows.length; i++) {
+        let row = rows[i];
+        if (i >= project.page * project.pageSize && i < (project.page + 1) * project.pageSize) {
+            row.classList.add('show');
+        } else {
+            row.classList.remove('show');
+        }
+    }
+    document.getElementById('status').textContent = 'Page ' + (project.page + 1) + ' of ' + Math.ceil(rows.length / project.pageSize);
+}
+
+// Reads the project from cookie and returns object
+function getProject() {
+    let pageSize = document.getElementById('project_size').value;
+    let project = getCookie('project');
+    if (project != null) {
+        return JSON.parse(project);
+    } 
+    return {"pageSize": Number(pageSize), "page": 0, "status": false};
+}
+
+function saveProject(project) {
+    setCookie('project', JSON.stringify(project), 365);
+}
+
+function resetProject() {
+    setCookie('project', '', -1);
+    initProjectStatus();
+    updateFilters();
 }
