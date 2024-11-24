@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Multigenre</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/static/style.css">
     <script src="/static/script.js" defer></script>
 </head>
@@ -10,44 +11,54 @@
         <div class="section">
             <label>Menu:</label>
             <button id="clear_cache">Rescan</button>
-            <button id="toggle_settings">Hide Genres</button>
-            <span id="status">Loading...</span>
+            <button id="toggle_genres">Hide Genres</button>
+            <span class="padleft" id="status">Loading...</span>
         </div>
-        <div id="settings">
-            <div class="section">
-                <label title="These are all the genres found in scanned files. Check a box to manage that genre for each track.">Selected Genres:</label>
-                <div id="selectedGenres"></div>
-            </div>
+        <div id="selectedGenres" class="section">
+            <label title="These are all the genres found in scanned files. Check a box to manage that genre for each track.">Selected Genres:</label>
+            <div></div>
         </div>
         <div class="section">
-            <label>Search:</label>
-            <select id="filter_search">
-                <option value="any">Any</option>
-                <option value="artist">Artist</option>
-                <option value="album">Album</option>
-                <option value="title">Title</option>
-                <option value="genre">Genre</option>
-                <option value="year">Year</option>
-            </select>
-            <label>Keyword:</label>
-            <input type="text" id="filter_keyword">
-            <button id="filter_button">Filter</button>
-            <button id="filter_reset" class="btn-link">Reset</button>
-            <label title="Enter the number of tracks to display at a time and remember which pages have been processed." style="margin-left:1em;">Paging: </label>
-            <input type="text" id="project_size" size="3" value="16">
-            <button id="project_toggle">Start</button>
-            <button id="project_next" style="display:none">Next Page</button>
-            <button id="project_reset" class="btn-link" title="Reset processed pages and start over.">Reset</button>
+            <span class="settings-group">
+                <label>Search:</label>
+                <select id="filter_search">
+                    <option value="any">Any</option>
+                    <option value="artist">Artist</option>
+                    <option value="album">Album</option>
+                    <option value="title">Title</option>
+                    <option value="genre">Genre</option>
+                    <option value="year">Year</option>
+                </select>
+            </span>
+            <span class="settings-group">
+                <label>Keyword:</label>
+                <input type="text" id="filter_keyword">
+                <button id="filter_button">Filter</button>
+                <button id="filter_reset" class="btn-link">Reset</button>
+            </span>
+            <span class="settings-group">
+                <label class="padleft" title="Enter the number of tracks to display at a time and remember which pages have been processed.">Page Size: </label>
+                <input type="text" id="page_size" size="3" value="">
+                <button id="page_apply">Apply</button>
+                <button id="page_prev">&lt;&lt;</button>
+                <button id="page_next">&gt;&gt;</button>
+                <button id="page_reset" class="btn-link" title="Reset processed pages and start over.">Reset</button>
+            </span>
+            <span class="settings-group">
+                <label class="padleft">Order:</label>
+                <span id="order"></span>
+                <button id="order_reset" class="btn-link">Reset</button>
+            </span>
         </div>
         <table id="tracks" class="tbl">
             <thead>
                 <tr>
-                    <th>Artist</th>
-                    <th>Album</th>
-                    <th class="numbersort">#</th>
-                    <th>Title</th>
-                    <th>Year</th>
-                    <th class="nosort">Genres</th>
+                    <th data-field="artist">Artist</th>
+                    <th data-field="album">Album</th>
+                    <th data-field="trackNumber" data-type="int">#</th>
+                    <th data-field="title">Title</th>
+                    <th data-field="year">Year</th>
+                    <th class="nosort">Genres<div id="genre_all"></div></th>
                 </tr>
             </thead>
             <tbody>

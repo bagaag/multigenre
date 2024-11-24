@@ -1,92 +1,353 @@
 const apiUrl = '/api/';
 const appTitle = 'Multigenre';
 const loadingText = 'Loading...';
-const statusText = loadingText;
 const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
 var allGenres = []; // all available genres
 var selectedGenres = []; // selected genres to display in table
 var tracks = []; // array of all track objects
+var filteredTracks = [];
+var settings = settingsGet(); // app settings
 
 async function appInit(cached=true) {
-    startWait();
-    resetUI();
+    waitStart();
+    uiReset();
     // get tracks from api
-    let data = [];
     let result = await fetch(apiUrl + (cached ? 'scan/cached' : 'scan'));
-    data = await result.json();
-    for (let i=0; i<data.length; i++) {
-        let track = data[i];
-        if (track.title === '') {
-            track.title = track.file;
-        }
-        let genres = track.genres;
-        genres.forEach(genre => {
-            if (!allGenres.includes(genre) && genre !== '') {
-                allGenres.push(genre);
-            }
-        });
-        addTrack(track);
-    }
-    allGenres.sort();
-    // setup app screen 
-    setupGenreSelectors();
-    resetFilters(false);
-    initProjectStatus();
-    loadSettings();
+    tracks = await result.json();
+    // setup app screen
+    genresCollect();
+    genreSelectorsCreate();
+    settingsLoad();
+    filterApply(save=false);    
+    tracksLoad();
+    pageNavButtonStateSet();
     // button event listeners
-    document.getElementById('filter_button').addEventListener('click', updateFilters);
-    document.getElementById('filter_reset').addEventListener('click', resetFilters);
-    document.getElementById('clear_cache').addEventListener('click', clearCache);
-    document.getElementById('toggle_settings').addEventListener('click', toggleGenreSelectorVisibility);
-    document.getElementById('project_toggle').addEventListener('click', toggleProject);
-    document.getElementById('project_next').addEventListener('click', nextProjectPage);    
-    document.getElementById('project_reset').addEventListener('click', resetProject);
+    document.getElementById('filter_button').addEventListener('click', filterApply);
+    document.getElementById('filter_reset').addEventListener('click', filterReset);
+    document.getElementById('clear_cache').addEventListener('click', cacheClear);
+    document.getElementById('toggle_genres').addEventListener('click', genreSelectorVisibilityToggle);
+    document.getElementById('page_apply').addEventListener('click', pageSizeApply);    
+    document.getElementById('page_prev').addEventListener('click', pagePrev);
+    document.getElementById('page_next').addEventListener('click', pageNext);
+    document.getElementById('page_reset').addEventListener('click', pagingReset);
+    document.getElementById('order_reset').addEventListener('click', tracksOrderReset);
     // sort event listeners
-    document.getElementById('tracks').getElementsByTagName('thead')[0].addEventListener('click', tableSort);
-    Array.from(document.getElementsByClassName('nosort')).forEach((el) => {el.removeEventListener('click', tableSort)});
-    endWait();
+    document.getElementById('tracks').getElementsByTagName('thead')[0].addEventListener('click', tracksOrderEvent);
+    waitEnd();
 }
 appInit();
 
-function resetUI() {
-    let tracks = document.getElementById('tracks');
-    let tbody = tracks.getElementsByTagName('tbody')[0];
-    tbody.textContent = '';
-    let selectors = document.getElementById('selectedGenres');
-    selectors.textContent = '';
+// Reloads the page without using cached data
+function cacheClear() {
+    appInit(false);
+}
+
+/* ===== UTILITIES ===== */
+
+function cookieGet(name) {
+    const cookies = document.cookie.split('; ');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].split('=');
+      if (cookie[0] === name) {
+        return decodeURIComponent(cookie[1]);
+      }
+    }
+    return null;
+}
+
+function cookieSet(name, value, days) {
+    const date = new Date();
+    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+    const expires = "expires=" + date.toUTCString();
+    document.cookie = name + "=" + encodeURIComponent(value) + ";" + expires + ";path=/;SameSite=Lax";
 }
 
 function numberWithCommas(x) {
     return x.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
 }
 
+/* ===== FILTERING ===== */
+
+// Update table rows based on filter form values
+function filterApply(save=true) {
+    if (save && settings.page > 0) {
+        if (!confirm('Changing filters will reset the saved page number to 1. Continue?')) {
+            return;
+        }
+    }
+    let search = document.getElementById('filter_search').value;
+    let keyword = document.getElementById('filter_keyword').value.toLowerCase();
+    filteredTracks = tracks.filter(track => {
+        let artist = track.artist.toLowerCase();
+        let album = track.album.toLowerCase();
+        let title = track.title.toLowerCase();
+        let year = track.year.toLowerCase();
+        let genres = track.genres.join(', ').toLowerCase();
+        let include = false;
+        if (keyword == '') {
+            include = true
+        } else if (search == 'any') {
+            include = artist.includes(keyword) || album.includes(keyword) || 
+                   title.includes(keyword) || year.includes(keyword) || 
+                   genres.includes(keyword);
+        } else if (search == 'artist') {
+            include = artist.includes(keyword);
+        } else if (search == 'album') {
+            include = album.includes(keyword);
+        } else if (search == 'title') {
+            include = title.includes(keyword);
+        } else if (search == 'year') {
+            if (keyword.includes('-')) {
+                let range = keyword.split('-');
+                include = year >= range[0] && year <= range[1];
+            } else {            
+                include = year.includes(keyword);
+            }
+        } else if (search == 'genre') {
+            include = genres.includes(keyword);
+        }
+        return include;
+    });
+    if (save) {
+        pagingReset();
+        settingsSave();
+    }
+}
+
+// Clear filter form and reset search results
+function filterReset(save=true) {
+    document.getElementById('filter_search').value = 'any';
+    document.getElementById('filter_keyword').value = '';
+    filterApply(save);
+}
+
+/* ===== GENRES ===== */
+
+// Prompts user for new genre and adds it to allGenres
+function genreAdd() {
+    let genre = prompt('Enter new genre:');
+    if (genre) {
+        if (!allGenres.includes(genre)) {
+            allGenres.push(genre);
+            createGlobalGenreSelectors();
+            document.querySelector('#selectedGenres input[value="' + genre + '"]').checked = true;
+            settingsSave();
+            trackGenreSelectorsCreate();
+        } else {
+            alert('Genre already exists.');
+        }
+    }
+}
+
 // Shows/hides the genres block
-function toggleGenreSelectorVisibility(status=null, save=true) {
-    let settings = document.getElementById('settings');
-    let btn = document.getElementById('toggle_settings');
-    if (settings.style.display === 'none') {
-        settings.style.display = 'block';
+function genreSelectorVisibilityToggle() {
+    let settingsDiv = document.getElementById('selectedGenres');
+    let btn = document.getElementById('toggle_genres');
+    if (settingsDiv.style.display === 'none') {
+        settingsDiv.style.display = 'block';
         btn.textContent = 'Hide Grenres';
     } else {
-        settings.style.display = 'none';
+        settingsDiv.style.display = 'none';
         btn.textContent = 'Show Genres';
     }
-    if (save) {
-        saveSettings();
+    settingsSave();
+}
+
+// Collects genres from all tracks and populates global list
+function genresCollect() {
+    tracks.forEach(track => {
+        let genres = track.genres;
+        genres.forEach(genre => {
+            if (!allGenres.includes(genre) && genre !== '') {
+                allGenres.push(genre);
+            }
+        });            
+    });
+    allGenres.sort();
+}
+
+function genresSelectedClear() {
+    let selectors = document.getElementById('selectedGenres').lastChild;
+    selectors.textContent = '';
+}
+
+// Unchecks all genre selector checkboxes
+function genresSelectedReset() {
+    let boxes = document.getElementById('selectedGenres').querySelectorAll('input');
+    boxes.forEach(box => box.checked = false);
+    settingsSaveAndReload();
+}
+
+// Creates global genre selection checkbox for each genre
+function genreSelectorsCreate() {
+    let selectors = document.getElementById('selectedGenres');
+    selectors.textContent = '';
+    allGenres.forEach(genre => {
+        // genre selector
+        let label = document.createElement('label');
+        let box = document.createElement("input");
+        box.setAttribute('type', 'checkbox');
+        box.value = genre;
+        label.appendChild(box);
+        label.appendChild(document.createTextNode(genre));
+        selectors.appendChild(label);
+    });
+    // link to apply selected genres
+    let apply = document.createElement('button');
+    apply.textContent = 'Apply';
+    apply.addEventListener('click', settingsSaveAndReload);
+    selectors.appendChild(apply);
+    // link to add new genre
+    let newGenre = document.createElement('button');
+    newGenre.textContent = 'Add Genre';
+    newGenre.addEventListener('click', genreAdd);
+    selectors.appendChild(newGenre);
+    // link to remove all selected genres
+    let reset = document.createElement('button');
+    reset.textContent = 'Reset ';
+    reset.setAttribute('class', 'btn-link');
+    reset.addEventListener('click', genresSelectedReset);
+    selectors.appendChild(reset);
+}
+
+/* ===== PAGING ===== */
+
+function pageHasNext() {
+    return settings.page < Math.ceil(filteredTracks.length / settings.pageSize) - 1;
+}
+
+function pageHasPrev() {
+    return settings.page > 0;
+}
+
+function pagePrev() {
+    if (pageHasPrev()) {
+        settings.page--;
+        settingsSave();
+        tracksLoad();
+    }
+    pageNavButtonStateSet();
+}
+
+function pageNavButtonStateSet() {
+    document.getElementById('page_prev').disabled = !pageHasPrev();
+    document.getElementById('page_next').disabled = !pageHasNext();
+}
+
+function pageNext() {
+    if (pageHasNext()) {
+        settings.page++;    
+        settingsSave();
+        tracksLoad();
+    }
+    pageNavButtonStateSet();
+}
+
+function pageSizeApply() {
+    let startIx = settings.page * settings.pageSize;
+    settings.pageSize = Number(document.getElementById('page_size').value);
+    settings.page = Math.floor(startIx / settings.pageSize);
+    settingsSave();
+    tracksLoad();
+}
+
+function pagingReset() {
+    settings.page = 0;
+    settingsSave();
+    tracksLoad();
+    pageNavButtonStateSet();
+}
+
+/* ===== SETTINGS ===== */
+
+// Loads settings from cookie and returns object
+function settingsGet() {
+    let json = cookieGet('multigenre-settings');
+    if (json != null) {
+        let settings = JSON.parse(json);
+        return settings;
+    }
+    return { 
+            selectedGenres: [], 
+            settingsVisible: false, 
+            filterSearch: 'any', 
+            filterKeyword: '',
+            pageSize: 100,
+            page: 0,
+            order: []
+           };
+}
+
+// Loads settings from cookie
+function settingsLoad() {
+    console.log('loading', settings);
+    // load genre selector UI state
+    let settingsDiv = document.getElementById('selectedGenres');
+    settingsDiv.style.display = settings.genresVisible ? 'block' : 'none';
+    let btn = document.getElementById('toggle_genres');
+    btn.textContent = settings.genresVisible ? 'Hide Genres' : 'Show Genres';
+    // load filters
+    let filterSearch = document.getElementById('filter_search');
+    filterSearch.value = settings.filterSearch;
+    let filterKeyword = document.getElementById('filter_keyword');
+    filterKeyword.value = settings.filterKeyword;
+    // load page size
+    let pageSize = document.getElementById('page_size');
+    pageSize.value = settings.pageSize;
+}
+
+// Saves currently selected genres to cookie
+function settingsSave() {
+    settings.selectedGenres = Array.from(document.getElementById('selectedGenres').querySelectorAll('input:checked')).map(el => el.value);
+    settings.filterSearch = document.getElementById('filter_search').value;
+    settings.filterKeyword = document.getElementById('filter_keyword').value;
+    settings.genresVisible = document.getElementById('selectedGenres').style.display != 'none';
+    settings.pageSize = Number(document.getElementById('page_size').value);
+    cookieSet('multigenre-settings', JSON.stringify(settings), 365);
+}
+
+async function settingsSaveAndReload() {
+    settingsSave();
+    window.location.reload();
+}
+
+/* ===== MISC UI ===== */
+
+function statusTextSet(text) {
+    let status = document.getElementById('status');
+    let trackCountText = numberWithCommas(tracks.length);
+    let filteredCountText = numberWithCommas(filteredTracks.length);
+    let pageCountText = numberWithCommas(Math.ceil(filteredTracks.length / settings.pageSize));
+    if (text) {
+        status.textContent = text;
+    } else {
+        if (filteredTracks.length === tracks.length) {
+            status.textContent = trackCountText + ' tracks; ';            
+        } else {
+            status.textContent = 'Filtered ' + filteredCountText + ' of ' + trackCountText + ' tracks; ';
+        }
+        status.textContent += 'Page ' + (settings.page + 1) + ' of ' + pageCountText;
+    }
+    // display order
+    if (settings.order.length > 0) {
+        document.getElementById('order').textContent = settings.order.flatMap(o => o.field).reverse().join(', ');
+    } else {
+        document.getElementById('order').textContent = 'Default';
     }
 }
 
-// Reloads the page without using cached data
-function clearCache() {
-    appInit(false);
+function uiReset() {
+    tracksClear();
+    genresSelectedClear();
 }
 
+/* ===== TRACKS ===== */
+
 // Adds a track to the table
-function addTrack(track) {
-    tracks.push(track);
+function trackAdd(track) {
     let tbl = document.getElementById('tracks');
     let row = tbl.getElementsByTagName('tbody')[0].insertRow();
-    row.classList.add('show');
+    row.classList.add('visible-track');
     row.setAttribute('id', 'track_' + track.id);
     let artist = row.insertCell();
     artist.setHTMLUnsafe(track.artist);
@@ -107,41 +368,26 @@ function addTrack(track) {
     genre.setAttribute('title', track.genres.join(', '));
 }
 
-function startWait() {
-    document.title = 'Loading...';
-    document.getElementsByTagName('body')[0].style.cursor = 'wait';
-    document.getElementById('status').textContent = loadingText;
-}
-function endWait() {
-    let count = document.getElementById('tracks').getElementsByTagName('tbody')[0].querySelectorAll('tr.show').length;
-    document.getElementById('status').textContent = numberWithCommas(count) + ' tracks';
-    document.title = appTitle;
-    document.getElementsByTagName('body')[0].style.cursor = 'default';
-}
-
-// For some reason, using startWait with a sleep to force UI refresh causes the page to hang 
-// after a few calls to toggleSelectableGenre. This is a workaround.
-async function saveSettingsAndReload() {
-    saveSettings();
-    window.location.reload();
-}
-
-// Creates/recreates selected genre checkboxes in each track's genre cell
-function toggleSelectableGenre(ev, save=true) {
-    let genre = ev.target.value;
-    let selected = ev.target.checked;
+// Creates genre checkboxes for every visible track
+function trackGenreSelectorsCreate() {
+    let selectedGenres = settings.selectedGenres;
+    // check selected genres
+    let boxes = document.getElementById('selectedGenres').querySelectorAll('input');
+    boxes.forEach(box => {
+        let genre = box.value;
+        if (selectedGenres.includes(genre)) {
+            box.checked = true;
+        }
+    });
+    // add genre checkboxes to each track
     let genreCells = Array.from(document.getElementsByClassName('track-genres'));
     for (let i=0; i<genreCells.length; i++) {
         let cell = genreCells[i];
-        let genreBox = cell.querySelector('input[value="' + genre + '"]');
-        if (genreBox && !selected) {
-            genreBox.parentElement.style.display = 'none';
-        } else if (genreBox && selected) {
-            genreBox.parentElement.style.display = 'inline';
-        } else if (!genreBox && selected) {
-            // add genre box
+        cell.textContent = '';
+        selectedGenres.forEach(genre => {
             let trackId = cell.parentElement.getAttribute('id').split('_')[1];
             let track = tracks.find(t => t.id === trackId);
+            // create track row checkbox
             let label = document.createElement('label');
             let box = document.createElement("input");
             box.setAttribute('type', 'checkbox');
@@ -154,64 +400,31 @@ function toggleSelectableGenre(ev, save=true) {
             box.addEventListener('change', function() {
                 let trackId = box.getAttribute('data-trackid');
                 let genre = box.value;
-                toggleTrackGenre(trackId, genre, box.checked);
+                trackGenreToggle(trackId, genre, box.checked);
             });
-        }
-    }
-    if (save) {
-        saveSettings();
-    }
-}
-
-// Saves currently selected genres to cookie
-function saveSettings() {
-    let selectedGenres = Array.from(document.getElementById('selectedGenres').querySelectorAll('input:checked')).map(el => el.value);
-    let filterSearch = document.getElementById('filter_search');
-    let filterKeyword = document.getElementById('filter_keyword');
-    let settings = {
-        "selectedGenres": selectedGenres,
-        "settingsVisible": document.getElementById('settings').style.display != 'none',
-        "filterSearch": filterSearch.value,
-        "filterKeyword": filterKeyword.value
-    };
-    console.log('saving', settings);
-    setCookie('multigenre-settings', JSON.stringify(settings), 365);
-}
-
-// Loads selected genres from cookie
-function loadSettings() {
-    let json = getCookie('multigenre-settings');
-    console.log('loading', json);
-    if (json != null) {
-        let settings = JSON.parse(json);
-        console.log('loading', settings);
-        // load selected genres
-        let selectedGenres = settings.selectedGenres;
-        let boxes = document.getElementById('selectedGenres').querySelectorAll('input');
-        boxes.forEach(box => {
-            let genre = box.value;
-            if (selectedGenres.includes(genre)) {
-                box.checked = true;
-                toggleSelectableGenre({target: box}, false);
-            }
         });
-        // load genre selector UI state
-        let settingsDiv = document.getElementById('settings');
-        settingsDiv.style.display = settings.settingsVisible ? 'block' : 'none';
-        let btn = document.getElementById('toggle_settings');
-        btn.textContent = settings.settingsVisible ? 'Hide Genres' : 'Show Genres';
-        // load filters
-        let filterSearch = document.getElementById('filter_search');
-        filterSearch.value = settings.filterSearch;
-        let filterKeyword = document.getElementById('filter_keyword');
-        filterKeyword.value = settings.filterKeyword;
-        updateFilters(false);
     }
+    // create select/unselect all checkbox
+    let selectAll = document.getElementById('genre_all');
+    selectAll.textContent = '';
+    selectedGenres.forEach(genre => {
+        let label2 = document.createElement('label');
+        let box2 = document.createElement("input");
+        box2.setAttribute('type', 'checkbox');
+        box2.value = genre;
+        label2.appendChild(box2);
+        label2.appendChild(document.createTextNode(genre));
+        box2.addEventListener('change', function(ev) {
+            let genre = ev.target.value;
+            trackGenreToggleAll(genre, ev.target.checked);
+        });
+        selectAll.appendChild(label2);
+    });
 }
 
 // Adds or removes a genre for a specified track
-async function toggleTrackGenre(trackId, genre, checked) {
-    await startWait();
+async function trackGenreToggle(trackId, genre, checked) {
+    await waitStart();
     // find track by id
     let track = tracks.find(t => t.id === trackId);
     // update genres
@@ -242,42 +455,25 @@ async function toggleTrackGenre(trackId, genre, checked) {
         let genreCell = document.getElementById('track_' + trackId).querySelector('.track-genres');
         genreCell.setAttribute('title', track.genres.join(', '));
     }
-    endWait();
+    waitEnd();
 }
 
-// Creates global genre selection checkbox for each genre
-function setupGenreSelectors() {
-    let selectors = document.getElementById('selectedGenres');
-    selectors.textContent = '';
-    allGenres.forEach(genre => {
-        // genre selector
-        let label = document.createElement('label');
-        let box = document.createElement("input");
-        box.setAttribute('type', 'checkbox');
-        box.value = genre;
-        box.addEventListener('change', saveSettingsAndReload);
-        label.appendChild(box);
-        label.appendChild(document.createTextNode(genre));
-        selectors.appendChild(label);
-    });
-    // link to add new genre
-    let newGenre = document.createElement('button');
-    newGenre.textContent = 'Add New Genre';
-    newGenre.addEventListener('click', addNewGenre);
-    selectors.appendChild(newGenre);
-}
-
-// Prompts user for new genre and adds it to allGenres
-function addNewGenre() {
-    let genre = prompt('Enter new genre:');
-    if (genre) {
-        allGenres.push(genre);
-        setupGenreSelectors();
+// Sets or unsets a genre for all tracks on the current page
+async function trackGenreToggleAll(genre, selected) {
+    let rows = document.querySelectorAll('#tracks > tbody > tr');
+    for (let i=0; i<rows.length; i++) {
+        let row = rows[i];
+        let trackId = row.id.split('_')[1];
+        let box = row.querySelector('input[value="' + genre + '"]');
+        if (box && box.checked !== selected) {            
+            box.checked = selected;
+            await trackGenreToggle(trackId, genre, selected);
+        }
     }
 }
 
 // Play a track
-function play(trackId) {
+function trackPlay(trackId) {
     let audio = document.getElementById('audio');
     let track = tracks.find(t => t.id === trackId);
     document.title = 'Multigenre - ' + track.title + ' by ' + track.artist;
@@ -285,181 +481,89 @@ function play(trackId) {
     audio.play();
 }
 
-// Clear filter form and reset search results
-function resetFilters(save=true) {
-    document.getElementById('filter_search').value = 'any';
-    document.getElementById('filter_keyword').value = '';
-    updateFilters(save);
+function tracksClear() {
+    let table = document.getElementById('tracks');
+    let rowCount = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr').length;
+    for (let i=0; i<rowCount; i++) {
+        table.deleteRow(1);
+    }
 }
 
-// Update table rows based on filter form values
-function updateFilters(save=true) {
-    startWait();
-    let search = document.getElementById('filter_search').value;
-    let keyword = document.getElementById('filter_keyword').value.toLowerCase();
-    let tbl = document.getElementById('tracks');
-    let rows = tbl.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    let count = 0;
-    for (let i=0; i<rows.length; i++) {
-        let row = rows[i];
-        let artist = row.cells[0].textContent.toLowerCase();
-        let album = row.cells[1].textContent.toLowerCase();;
-        let title = row.cells[3].textContent.toLowerCase();;
-        let year = row.cells[4].textContent.toLowerCase();;
-        let genres = row.cells[5].getAttribute('title').toLowerCase();
-        let show = false;
-        if (keyword == '') {
-            show = true
-        } else if (search == 'any') {
-            show = artist.includes(keyword) || album.includes(keyword) || 
-                   title.includes(keyword) || year.includes(keyword) || 
-                   genres.includes(keyword);
-        } else if (search == 'artist') {
-            show = artist.includes(keyword);
-        } else if (search == 'album') {
-            show = album.includes(keyword);
-        } else if (search == 'title') {
-            show = title.includes(keyword);
-        } else if (search == 'year') {
-            if (keyword.includes('-')) {
-                let range = keyword.split('-');
-                show = year >= range[0] && year <= range[1];
-            } else {            
-                show = year.includes(keyword);
-            }
-        } else if (search == 'genre') {
-            show = genres.includes(keyword);
+function tracksLoad() {
+    tracksClear();
+    // uncheck all genre checkboxes
+    selectAllBoxes = document.getElementById('genre_all').querySelectorAll('input');
+    selectAllBoxes.forEach(box => {
+        box.checked = false
+    });
+    // load tracks
+    let startIndex = settings.page * settings.pageSize;
+    let endIndex = Math.min(filteredTracks.length, startIndex + settings.pageSize);
+    for (let i=startIndex; i<endIndex; i++) {
+        let track = filteredTracks[i];
+        if (track.title === '') {
+            track.title = track.file;
         }
-        if (show) {
-            count++;
-            row.classList.add('show');
-        } else {
-            row.classList.remove('show');
-        }
+        trackAdd(track);
     }
-    if (save) {
-        saveSettings();
-    }
-    endWait();
+    trackGenreSelectorsCreate();
+    statusTextSet();
 }
 
-// Sort table rows by column
-async function tableSort(ev) {
-    let project = getProject();
-    if (project.status) {
-        alert('Sorting is disabled when in paging mode.');
+// Respond to click on table header to change order
+function tracksOrderEvent(ev) {
+    let target = ev.target;
+    if (!target.dataset.field) {
         return;
     }
-    startWait();
-    let target = ev.target;
-    let col = target.cellIndex;
-    let tbl = document.getElementById('tracks');
-    let numeric = Array.from(tbl.getElementsByClassName('numbersort')).includes(target);
-    let rows = Array.from(tbl.getElementsByTagName('tbody')[0].getElementsByTagName('tr'));
-    let sorted = rows.sort((a, b) => {
-        let aVal = numeric ? Number(a.cells[col].textContent) : a.cells[col].textContent;
-        let bVal = numeric ? Number(b.cells[col].textContent) : b.cells[col].textContent;
-        if (aVal < bVal) return -1;
-        if (aVal > bVal) return 1;
-        return 0;
-    });
-    rows.forEach(row => row.remove());
-    sorted.forEach(row => tbl.getElementsByTagName('tbody')[0].appendChild(row));
-    endWait();
-}
-
-function getCookie(name) {
-    const cookies = document.cookie.split('; ');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].split('=');
-      if (cookie[0] === name) {
-        return decodeURIComponent(cookie[1]);
-      }
-    }
-    return null;
-}
-
-function setCookie(name, value, days) {
-    const date = new Date();
-    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-    const expires = "expires=" + date.toUTCString();
-    document.cookie = name + "=" + encodeURIComponent(value) + ";" + expires + ";path=/;SameSite=Lax";
-}
-
-function initProjectStatus() {
-    let project = getProject();
-    let btnNext = document.getElementById('project_next');
-    let pageSize = document.getElementById('project_size');
-    if (!project.status) {
-        document.getElementById('project_toggle').textContent = 'Start';
-        btnNext.style.display = 'none';
-        pageSize.removeAttribute('disabled');
-    } else {
-        document.getElementById('project_toggle').textContent = 'Stop';
-        btnNext.style.display = 'inline';
-        pageSize.setAttribute('disabled', 'disabled');
-        nextProjectPage(false);
-    }
-}
-
-function toggleProject() {
-    let project = getProject();
-    let btn = document.getElementById('project_toggle');
-    let pageSize = document.getElementById('project_size');
-    let btnNext = document.getElementById('project_next');
-    if (!project.status) {
-        project.status = true;
-        project.pageSize = pageSize.value;
-        btn.textContent = 'Stop';
-        pageSize.setAttribute('disabled', 'disabled');
-        btnNext.style.display = 'inline';
-        saveProject(project);
-        nextProjectPage(false);
-    } else {
-        project.status = false;
-        btn.textContent = 'Start';
-        pageSize.removeAttribute('disabled');
-        btnNext.style.display = 'none';
-        saveProject(project);
-        updateFilters(false);
-    }
-}
-
-function nextProjectPage(increment=true) {
-    let project = getProject();
-    if (increment) {
-        project.page++;
-        saveProject(project);
-    }
-    let tbl = document.getElementById('tracks');
-    let rows = tbl.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    for (let i=0; i<rows.length; i++) {
-        let row = rows[i];
-        if (i >= project.page * project.pageSize && i < (project.page + 1) * project.pageSize) {
-            row.classList.add('show');
-        } else {
-            row.classList.remove('show');
+    if (settings.page > 0) {
+        if (!confirm('Changing the order will reset the saved page number to 1. Continue?')) {
+            return;
         }
     }
-    document.getElementById('status').textContent = 'Page ' + (project.page + 1) + ' of ' + Math.ceil(rows.length / project.pageSize);
+    settings.order.push({
+        field: target.dataset.field, 
+        type: target.dataset.type, 
+        asc: true
+    });
+    tracksOrder();
 }
 
-// Reads the project from cookie and returns object
-function getProject() {
-    let pageSize = document.getElementById('project_size').value;
-    let project = getCookie('project');
-    if (project != null) {
-        return JSON.parse(project);
-    } 
-    return {"pageSize": Number(pageSize), "page": 0, "status": false};
+// Order tracks
+function tracksOrder() {
+    settings.order.forEach(order => {
+        let field = order.field;
+        let numeric = order.type === 'int';
+        filteredTracks.sort((a, b) => {
+            let aVal = numeric ? Number(a[field]) : a[field];
+            let bVal = numeric ? Number(b[field]) : b[field];
+            if (aVal < bVal) return -1;
+            if (aVal > bVal) return 1;
+            return 0;
+        });
+    });
+    pagingReset();
 }
 
-function saveProject(project) {
-    setCookie('project', JSON.stringify(project), 365);
+function tracksOrderReset() {
+    if (settings.page > 0 && !confirm('Changing the order will reset the saved page number to 1. Continue?')) {
+        return;
+    }
+    settings.order = [];
+    settingsSaveAndReload();
 }
 
-function resetProject() {
-    setCookie('project', '', -1);
-    initProjectStatus();
-    updateFilters();
+/* ===== WAIT/LOADING ===== */
+
+function waitStart() {
+    document.title = loadingText;
+    document.getElementsByTagName('body')[0].style.cursor = 'wait';
+    document.getElementById('status').textContent = loadingText;
 }
+function waitEnd() {
+    let count = document.getElementById('tracks').getElementsByTagName('tbody')[0].querySelectorAll('tr.show').length;
+    document.title = appTitle;
+    document.getElementsByTagName('body')[0].style.cursor = 'default';
+    statusTextSet();
+}
+

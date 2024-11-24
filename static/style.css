@@ -1,7 +1,6 @@
 body {
     font-family: monospace;
     font-size: 1.25em;
-    min-height: 100vh;
 }
 .tbl {
     border-collapse: collapse;
@@ -11,28 +10,38 @@ body {
     border: 1px solid #aaa;
     padding: 6px;
 }
-label {
+.settings-group label, #selectedGenres button {
     display: inline-block;
     white-space: nowrap;
+    margin-right: 1em;
+}
+.padleft {
+    margin-left: 1em;
+}
+#selectedGenres label {
+    font-weight: normal;
     margin-right: 1em;
 }
 #settings {
     margin: 1em 0;
 }
-#selectedGenres {
-    display: inline;
-}
-#selectedGenres div {
+.settings-group {
+    white-space: nowrap;
     display: inline-block;
-    margin-right: 1em;
 }
 .track-genres {
     white-space: nowrap;
 }
+#genre_all {
+    text-align: left;
+}
+#genre_all label {
+    font-weight: normal;
+}
 .section {
     margin: 1em 0;
 }
-.section > label {
+.settings-group > label, .section > label {
     margin-right: 0;
     font-weight: bold;
 }
@@ -69,9 +78,6 @@ thead th:hover {
     text-decoration: none;
     cursor: default;
 }
-#tracks tbody > tr {
-    display: none;
-}
-#tracks tbody > tr.show {
-    display: table-row;
+#order {
+    font-size: 0.8em;
 }

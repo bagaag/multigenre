@@ -27,7 +27,6 @@ Packages installed w/ pip
 - mutagen
 - fastapi[standard]
 
-
 ## To Do
 
 - Documentation
